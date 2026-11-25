@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div><p class="eyebrow">CAMPUS SECOND-HAND MARKET</p><h1>讓閒置物品，<br>遇見需要它的人。</h1><p>校園二手交易平台，讓書籍、文具與生活用品循環利用。</p></div>
+  <a class="primary" href="{{ url_for('new_product') }}">＋ 刊登商品</a>
+</section>
+<form class="search" action="{{ url_for('search') }}" method="get">
+  <input name="q" value="{{ keyword|default('') }}" placeholder="搜尋商品名稱或分類">
+  <button type="submit">搜尋</button>
+</form>
+<div class="section-heading"><h2>最新上架</h2><span>{{ products|length }} 件商品</span></div>
+{% if products %}
+<div class="products">
+  {% for p in products %}
+  <a class="product-card" href="{{ url_for('product_detail', product_id=p.id) }}">
+    <div class="product-placeholder">CS</div>
+    <div class="product-info"><span class="tag">{{ p.category }}</span><h3>{{ p.title }}</h3><p class="price">NT$ {{ p.price }}</p><p class="muted">{{ p.condition_text }} · {{ p.username }}</p></div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><h3>目前還沒有商品</h3><p>成為第一位刊登商品的同學吧！</p></div>
+{% endif %}
+{% endblock %}
