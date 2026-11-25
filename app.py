@@ -92,7 +92,7 @@ def save_uploaded_image():
     if uploaded.mimetype != expected_mime[extension]:
         raise ValueError("圖片檔案格式不正確，請重新選擇照片。")
     supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
-    storage_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    storage_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "") or os.environ.get("SUPABASE_SECRET_KEY", "")
     if not supabase_url or not storage_key:
         raise ValueError("圖片儲存尚未設定，請在 Render 設定 Supabase Storage 金鑰。")
     filename = f"{uuid.uuid4().hex}{extension}"
