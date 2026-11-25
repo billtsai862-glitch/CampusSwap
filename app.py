@@ -173,7 +173,9 @@ def index():
     }.get(sort, "p.id DESC")
     sql = """
         SELECT p.*, u.username,
-               (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
+               (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count,
+               (SELECT ROUND(AVG(r.stars)::numeric, 1) FROM product_ratings r WHERE r.product_id = p.id) AS rating_avg,
+               (SELECT COUNT(*) FROM product_ratings r WHERE r.product_id = p.id) AS rating_count
         FROM products p JOIN users u ON p.user_id = u.id
         WHERE p.is_active IS TRUE
     """
@@ -312,9 +314,59 @@ def product_detail(product_id):
         favorite_count = conn.execute(
             "SELECT COUNT(*) AS count FROM favorites WHERE product_id = ?", (product_id,)
         ).fetchone()["count"]
+        rating_summary = conn.execute("""
+            SELECT ROUND(AVG(stars)::numeric, 1) AS rating_avg, COUNT(*) AS rating_count
+            FROM product_ratings WHERE product_id = ?
+        """, (product_id,)).fetchone()
+        my_rating = conn.execute(
+            "SELECT * FROM product_ratings WHERE product_id = ? AND buyer_id = ?",
+            (product_id, session.get("user_id", -1))
+        ).fetchone()
+        can_rate = False
+        if session.get("user_id") and not own_product and not my_rating:
+            can_rate = conn.execute("""
+                SELECT 1 FROM purchase_requests
+                WHERE product_id = ? AND buyer_id = ? AND status = 'completed'
+            """, (product_id, session["user_id"])).fetchone() is not None
     return render_template("product_detail.html", product=product, is_favorite=is_favorite,
                            own_product=own_product, my_request=my_request,
-                           favorite_count=favorite_count)
+                           favorite_count=favorite_count, rating_summary=rating_summary,
+                           my_rating=my_rating, can_rate=can_rate)
+
+
+@app.route("/product/<int:product_id>/rate", methods=["POST"])
+@login_required
+def rate_product(product_id):
+    product = get_product_or_404(product_id)
+    if product["user_id"] == session["user_id"]:
+        abort(403)
+    try:
+        stars = int(request.form.get("stars", "0"))
+    except ValueError:
+        stars = 0
+    comment = request.form.get("comment", "").strip()[:500]
+    if stars < 1 or stars > 5:
+        flash("請選擇 1 到 5 顆星。", "warning")
+        return redirect(url_for("product_detail", product_id=product_id))
+    with get_db() as conn:
+        completed_request = conn.execute("""
+            SELECT id FROM purchase_requests
+            WHERE product_id = ? AND buyer_id = ? AND status = 'completed'
+            ORDER BY updated_at DESC LIMIT 1
+        """, (product_id, session["user_id"])).fetchone()
+        if completed_request is None:
+            flash("只有完成交易的買家才能評分。", "warning")
+            return redirect(url_for("product_detail", product_id=product_id))
+        try:
+            conn.execute("""
+                INSERT INTO product_ratings
+                (product_id, buyer_id, purchase_request_id, stars, comment)
+                VALUES (?, ?, ?, ?, ?)
+            """, (product_id, session["user_id"], completed_request["id"], stars, comment))
+            flash("感謝你的評分！", "success")
+        except psycopg.IntegrityError:
+            flash("你已經評價過這項商品了。", "warning")
+    return redirect(url_for("product_detail", product_id=product_id))
 
 
 @app.route("/product/<int:product_id>/edit", methods=["GET", "POST"])
