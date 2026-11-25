@@ -9,6 +9,12 @@
 <section class="stats-strip"><div><strong>{{ stats.product_count }}</strong><span>件上架好物</span></div><div><strong>{{ stats.member_count }}</strong><span>位校園會員</span></div><div><strong>100%</strong><span>讓資源再次循環</span></div></section>
 <section class="market-section" id="market">
   <div class="section-intro"><div><span class="eyebrow">THE MARKETPLACE</span><h2>探索校園好物</h2><p>用更簡單的方式，找到你正在需要的東西。</p></div><a class="text-link" href="{{ url_for('new_product') }}">刊登一件商品 →</a></div>
+  <div class="quick-categories" aria-label="快速商品分類">
+    <a class="category-chip {% if not selected_category %}is-active{% endif %}" href="{{ url_for('index') }}">全部商品</a>
+    {% for item in categories %}
+      <a class="category-chip {% if selected_category == item.category %}is-active{% endif %}" href="{{ url_for('index', category=item.category) }}">{{ item.category }}</a>
+    {% endfor %}
+  </div>
   <form class="filter-panel" method="get" action="{{ url_for('index') }}">
     <div class="search-field"><span>⌕</span><input name="q" value="{{ keyword }}" placeholder="搜尋商品、分類或關鍵字"></div>
     <select name="category"><option value="">所有分類</option>{% for item in categories %}<option value="{{ item.category }}" {% if selected_category == item.category %}selected{% endif %}>{{ item.category }}</option>{% endfor %}</select>
