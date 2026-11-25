@@ -339,9 +339,21 @@ def delete_product(product_id):
         ).fetchone()
         if product is None:
             abort(404)
+        # Delete dependent records first to satisfy PostgreSQL foreign keys.
+        # Chat messages belong to conversations, which belong to this product.
+        conn.execute("""
+            DELETE FROM messages
+            WHERE conversation_id IN (
+                SELECT id FROM conversations WHERE product_id = ?
+            )
+        """, (product_id,))
+        conn.execute("DELETE FROM conversations WHERE product_id = ?", (product_id,))
         conn.execute("DELETE FROM favorites WHERE product_id = ?", (product_id,))
         conn.execute("DELETE FROM purchase_requests WHERE product_id = ?", (product_id,))
-        conn.execute("DELETE FROM products WHERE id = ?", (product_id,))
+        conn.execute(
+            "DELETE FROM products WHERE id = ? AND user_id = ?",
+            (product_id, session["user_id"])
+        )
     flash("商品已刪除。", "success")
     return redirect(url_for("dashboard"))
 
