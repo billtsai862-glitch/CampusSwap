@@ -199,7 +199,9 @@ def index():
         """).fetchone()
         popular_products = conn.execute("""
             SELECT p.*, u.username,
-                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
+                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count,
+                   (SELECT ROUND(AVG(r.stars)::numeric, 1) FROM product_ratings r WHERE r.product_id = p.id) AS rating_avg,
+                   (SELECT COUNT(*) FROM product_ratings r WHERE r.product_id = p.id) AS rating_count
             FROM products p JOIN users u ON p.user_id = u.id
             WHERE p.is_active IS TRUE
             ORDER BY favorite_count DESC, p.id DESC
@@ -207,7 +209,9 @@ def index():
         """).fetchall()
         latest_products = conn.execute("""
             SELECT p.*, u.username,
-                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
+                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count,
+                   (SELECT ROUND(AVG(r.stars)::numeric, 1) FROM product_ratings r WHERE r.product_id = p.id) AS rating_avg,
+                   (SELECT COUNT(*) FROM product_ratings r WHERE r.product_id = p.id) AS rating_count
             FROM products p JOIN users u ON p.user_id = u.id
             WHERE p.is_active IS TRUE
             ORDER BY p.id DESC
