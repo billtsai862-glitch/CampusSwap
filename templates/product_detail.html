@@ -4,7 +4,18 @@
 <div class="breadcrumb"><a href="{{ url_for('index') }}">探索商品</a><span>/</span><span>{{ product.category }}</span></div>
 <section class="detail-layout">
   <div class="detail-visual">{% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.title }}">{% else %}<div class="detail-placeholder"><span>CS</span><small>GIVE IT A SECOND LIFE</small></div>{% endif %}</div>
-  <div class="detail-info"><span class="eyebrow">{{ product.category }} · {{ product.condition_text }}</span><h1>{{ product.title }}</h1><div class="detail-price">NT$ {{ "{:,}".format(product.price) }}</div><div class="seller-line"><div class="avatar">{{ product.username[:1]|upper }}</div><div><strong>{{ product.username }}</strong><small>CampusSwap 賣家</small></div><span class="seller-badge">校園會員</span></div><div class="detail-description"><h3>商品介紹</h3><p>{{ product.description or "賣家尚未提供詳細說明。" }}</p></div><div class="detail-facts"><div><small>商品狀況</small><strong>{{ product.condition_text }}</strong></div><div><small>收藏人數</small><strong>{{ favorite_count }} 人收藏</strong></div><div><small>刊登時間</small><strong>{{ product.created_at }}</strong></div></div>
+  <div class="detail-info"><span class="eyebrow">{{ product.category }} · {{ product.condition_text }}</span><h1>{{ product.title }}</h1><div class="detail-price">NT$ {{ "{:,}".format(product.price) }}</div><div class="detail-rating"><span class="rating-stars">★</span><strong>{% if rating_summary.rating_count %}{{ rating_summary.rating_avg }} / 5{% else %}尚無評分{% endif %}</strong><span>（{{ rating_summary.rating_count }} 則評價）</span></div><div class="seller-line"><div class="avatar">{{ product.username[:1]|upper }}</div><div><strong>{{ product.username }}</strong><small>CampusSwap 賣家</small></div><span class="seller-badge">校園會員</span></div><div class="detail-description"><h3>商品介紹</h3><p>{{ product.description or "賣家尚未提供詳細說明。" }}</p></div><div class="detail-facts"><div><small>商品狀況</small><strong>{{ product.condition_text }}</strong></div><div><small>收藏人數</small><strong>{{ favorite_count }} 人收藏</strong></div><div><small>刊登時間</small><strong>{{ product.created_at }}</strong></div></div>
+    {% if my_rating %}
+      <div class="rating-panel"><strong>你已完成評價</strong><div class="rating-stars rating-stars-large">{{ "★" * my_rating.stars }}{{ "☆" * (5 - my_rating.stars) }}</div>{% if my_rating.comment %}<p>{{ my_rating.comment }}</p>{% endif %}</div>
+    {% elif can_rate %}
+      <form class="rating-panel" method="post" action="{{ url_for('rate_product', product_id=product.id) }}">
+        <strong>交易已完成，幫這項商品評個分數吧！</strong>
+        <label for="stars">星級評分</label>
+        <select id="stars" name="stars" required><option value="">請選擇星級</option><option value="5">★★★★★ 5 顆星</option><option value="4">★★★★☆ 4 顆星</option><option value="3">★★★☆☆ 3 顆星</option><option value="2">★★☆☆☆ 2 顆星</option><option value="1">★☆☆☆☆ 1 顆星</option></select>
+        <label for="rating-comment">評價內容（選填）</label><textarea id="rating-comment" name="comment" rows="2" maxlength="500" placeholder="分享商品實際狀況或交易心得"></textarea>
+        <button class="button button-primary button-wide" type="submit">送出評分</button>
+      </form>
+    {% endif %}
     {% if own_product %}
       <div class="detail-actions"><a class="button button-primary" href="{{ url_for('edit_product', product_id=product.id) }}">編輯商品</a><a class="button button-light" href="{{ url_for('dashboard') }}">管理刊登</a></div>
     {% elif product.is_active %}
