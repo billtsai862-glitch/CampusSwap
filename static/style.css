@@ -108,3 +108,16 @@ body{background:#f7f7f7;color:#171717}
  .showcase-heading{align-items:flex-start;gap:12px;flex-direction:column}
  .showcase-heading h2{font-size:21px}
 }
+
+
+/* Product star ratings */
+.product-rating, .detail-rating { display:flex; align-items:center; gap:6px; color:#555; font-size:13px; margin-top:7px; }
+.rating-stars { color:#d49b22; font-size:16px; letter-spacing:1px; }
+.rating-empty { color:#999; }
+.detail-rating { margin:10px 0 18px; font-size:14px; }
+.detail-rating strong { color:#222; }
+.rating-panel { display:flex; flex-direction:column; gap:9px; margin:18px 0; padding:16px; border:1px solid #e5e5e5; border-radius:14px; background:#fafafa; }
+.rating-panel label { font-size:13px; font-weight:600; }
+.rating-panel select, .rating-panel textarea { width:100%; border:1px solid #ddd; border-radius:9px; padding:10px; font:inherit; background:#fff; }
+.rating-stars-large { font-size:24px; }
+.rating-panel p { margin:0; color:#555; }
