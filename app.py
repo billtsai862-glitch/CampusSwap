@@ -115,6 +115,12 @@ def save_uploaded_image():
     extension = Path(secure_filename(uploaded.filename)).suffix.lower()
     if extension not in ALLOWED_IMAGE_EXTENSIONS:
         raise ValueError("圖片格式僅支援 JPG、PNG、WEBP 或 GIF。")
+    expected_mime = {
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"
+    }
+    if uploaded.mimetype != expected_mime[extension]:
+        raise ValueError("圖片檔案格式不正確，請重新選擇照片。")
     upload_dir = Path(app.config["UPLOAD_FOLDER"])
     upload_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}{extension}"
