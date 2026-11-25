@@ -4,7 +4,7 @@
   {% for p in items %}
   <a class="product-card" href="{{ url_for('product_detail', product_id=p.id) }}">
     <div class="product-image">{% if p.image_url %}<img src="{{ p.image_url }}" alt="{{ p.title }}" loading="lazy">{% else %}<div class="image-placeholder"><span>CS</span><small>CAMPUS FIND</small></div>{% endif %}<span class="image-category">{{ p.category }}</span></div>
-    <div class="product-content"><div class="product-meta"><span>{{ p.condition_text }}</span><span>♡ {{ p.favorite_count }}</span></div><h4>{{ p.title }}</h4><div class="product-bottom"><strong>NT$ {{ "{:,}".format(p.price) }}</strong><span>{{ p.username }}</span></div></div>
+    <div class="product-content"><div class="product-meta"><span>{{ p.condition_text }}</span><span>♡ {{ p.favorite_count }}</span></div><h4>{{ p.title }}</h4><div class="product-rating"><span class="rating-stars">★</span> {% if p.rating_count %}{{ p.rating_avg }}（{{ p.rating_count }}則評價）{% else %}<span class="rating-empty">尚無評價</span>{% endif %}</div><div class="product-bottom"><strong>NT$ {{ "{:,}".format(p.price) }}</strong><span>{{ p.username }}</span></div></div>
   </a>
   {% endfor %}
 </div>
