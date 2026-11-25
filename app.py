@@ -1,17 +1,21 @@
 import os
 import sqlite3
+import uuid
 from pathlib import Path
 from functools import wraps
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
+from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, abort
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("DATABASE_PATH", str(BASE_DIR / "campusswap.db")))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-this-before-public-use")
-app.config["MAX_CONTENT_LENGTH"] = 3 * 1024 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config["UPLOAD_FOLDER"] = os.environ.get("UPLOAD_FOLDER", str(BASE_DIR / "static" / "uploads"))
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
 def get_db():
@@ -75,6 +79,47 @@ def init_db():
                 FOREIGN KEY(buyer_id) REFERENCES users(id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                product_id INTEGER NOT NULL,
+                buyer_id INTEGER NOT NULL,
+                seller_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(product_id, buyer_id, seller_id),
+                FOREIGN KEY(product_id) REFERENCES products(id),
+                FOREIGN KEY(buyer_id) REFERENCES users(id),
+                FOREIGN KEY(seller_id) REFERENCES users(id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                sender_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                read_at TIMESTAMP,
+                FOREIGN KEY(conversation_id) REFERENCES conversations(id),
+                FOREIGN KEY(sender_id) REFERENCES users(id)
+            )
+        """)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id)")
+
+
+def save_uploaded_image():
+    uploaded = request.files.get("image")
+    if not uploaded or not uploaded.filename:
+        return None
+    extension = Path(secure_filename(uploaded.filename)).suffix.lower()
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError("圖片格式僅支援 JPG、PNG、WEBP 或 GIF。")
+    upload_dir = Path(app.config["UPLOAD_FOLDER"])
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{extension}"
+    uploaded.save(upload_dir / filename)
+    return url_for("static", filename=f"uploads/{filename}")
 
 
 def login_required(view):
@@ -213,6 +258,9 @@ def new_product():
     if request.method == "POST":
         try:
             values = validate_product_form()
+            uploaded_image = save_uploaded_image()
+            if uploaded_image:
+                values = values[:-1] + (uploaded_image,)
         except ValueError as error:
             flash(str(error), "warning")
             return render_template("new_product.html")
@@ -263,6 +311,11 @@ def edit_product(product_id):
     if request.method == "POST":
         try:
             values = validate_product_form()
+            uploaded_image = save_uploaded_image()
+            if uploaded_image:
+                values = values[:-1] + (uploaded_image,)
+            else:
+                values = values[:-1] + (product["image_url"],)
         except ValueError as error:
             flash(str(error), "warning")
             return render_template("edit_product.html", product=product)
@@ -437,6 +490,111 @@ def dashboard():
         """, (user_id, user_id, user_id)).fetchone()
     return render_template("dashboard.html", user=user, listings=listings,
                            received=received, sent=sent, counts=counts)
+
+
+@app.route("/messages")
+@login_required
+def messages_inbox():
+    user_id = session["user_id"]
+    with get_db() as conn:
+        conversations = conn.execute("""
+            SELECT c.id, c.product_id, c.updated_at, p.title, p.image_url,
+                   CASE WHEN c.buyer_id = ? THEN seller.username ELSE buyer.username END AS other_username,
+                   (SELECT body FROM messages m WHERE m.conversation_id=c.id ORDER BY m.id DESC LIMIT 1) AS last_message,
+                   (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id
+                    AND m.sender_id<>? AND m.read_at IS NULL) AS unread_count
+            FROM conversations c
+            JOIN products p ON p.id=c.product_id
+            JOIN users buyer ON buyer.id=c.buyer_id
+            JOIN users seller ON seller.id=c.seller_id
+            WHERE c.buyer_id=? OR c.seller_id=?
+            ORDER BY c.updated_at DESC, c.id DESC
+        """, (user_id, user_id, user_id, user_id)).fetchall()
+    html = """
+    {% extends 'base.html' %}{% block title %}站內訊息｜CampusSwap{% endblock %}
+    {% block content %}
+    <div class="dashboard-head"><div><span class="eyebrow">YOUR MESSAGES</span><h1>站內訊息</h1><p>與買家、賣家討論商品細節及面交方式。</p></div></div>
+    <section class="message-inbox">
+    {% for c in conversations %}
+      <a class="conversation-row" href="{{ url_for('chat_room', conversation_id=c.id) }}">
+        {% if c.image_url %}<img src="{{ c.image_url }}" alt="商品照片">{% else %}<div class="conversation-placeholder">CS</div>{% endif %}
+        <div class="conversation-copy"><strong>{{ c.other_username }} <span>· {{ c.title }}</span></strong><p>{{ c.last_message or '尚無訊息' }}</p><small>{{ c.updated_at }}</small></div>
+        {% if c.unread_count %}<span class="unread-pill">{{ c.unread_count }} 則未讀</span>{% endif %}
+      </a>
+    {% else %}<div class="empty-inline">目前還沒有對話。可以先到商品頁傳訊息給賣家。</div>{% endfor %}
+    </section>{% endblock %}
+    """
+    return render_template_string(html, conversations=conversations)
+
+
+@app.route("/chat/start/<int:product_id>", methods=["POST"])
+@login_required
+def start_chat(product_id):
+    product = get_product_or_404(product_id)
+    if product["user_id"] == session["user_id"]:
+        flash("不能傳訊息給自己。", "warning")
+        return redirect(url_for("product_detail", product_id=product_id))
+    if not product["is_active"]:
+        flash("此商品已下架，無法開啟新對話。", "warning")
+        return redirect(url_for("product_detail", product_id=product_id))
+    body = request.form.get("body", "").strip()
+    if not body or len(body) > 1000:
+        flash("訊息不可空白，且最多 1000 字。", "warning")
+        return redirect(url_for("product_detail", product_id=product_id))
+    with get_db() as conn:
+        conn.execute("INSERT OR IGNORE INTO conversations (product_id,buyer_id,seller_id) VALUES (?,?,?)",
+                     (product_id, session["user_id"], product["user_id"]))
+        conv = conn.execute("SELECT id FROM conversations WHERE product_id=? AND buyer_id=? AND seller_id=?",
+                            (product_id, session["user_id"], product["user_id"])).fetchone()
+        conn.execute("INSERT INTO messages (conversation_id,sender_id,body) VALUES (?,?,?)",
+                     (conv["id"], session["user_id"], body))
+        conn.execute("UPDATE conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conv["id"],))
+    return redirect(url_for("chat_room", conversation_id=conv["id"]))
+
+
+@app.route("/chat/<int:conversation_id>", methods=["GET", "POST"])
+@login_required
+def chat_room(conversation_id):
+    user_id = session["user_id"]
+    with get_db() as conn:
+        conv = conn.execute("""
+            SELECT c.*, p.title, p.id AS item_id,
+                   b.username AS buyer_name, s.username AS seller_name
+            FROM conversations c JOIN products p ON p.id=c.product_id
+            JOIN users b ON b.id=c.buyer_id JOIN users s ON s.id=c.seller_id
+            WHERE c.id=?
+        """, (conversation_id,)).fetchone()
+        if conv is None:
+            abort(404)
+        if user_id not in (conv["buyer_id"], conv["seller_id"]):
+            abort(403)
+        if request.method == "POST":
+            body = request.form.get("body", "").strip()
+            if not body or len(body) > 1000:
+                flash("訊息不可空白，且最多 1000 字。", "warning")
+            else:
+                conn.execute("INSERT INTO messages (conversation_id,sender_id,body) VALUES (?,?,?)",
+                             (conversation_id, user_id, body))
+                conn.execute("UPDATE conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?", (conversation_id,))
+                return redirect(url_for("chat_room", conversation_id=conversation_id))
+        conn.execute("UPDATE messages SET read_at=CURRENT_TIMESTAMP WHERE conversation_id=? AND sender_id<>? AND read_at IS NULL",
+                     (conversation_id, user_id))
+        msgs = conn.execute("SELECT m.*,u.username FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.conversation_id=? ORDER BY m.id",
+                            (conversation_id,)).fetchall()
+    other = conv["seller_name"] if user_id == conv["buyer_id"] else conv["buyer_name"]
+    html = """
+    {% extends 'base.html' %}{% block title %}與 {{ other }} 聊天｜CampusSwap{% endblock %}
+    {% block content %}
+    <div class="chat-page">
+      <div class="chat-top"><a href="{{ url_for('messages_inbox') }}">← 所有訊息</a><div><strong>{{ other }}</strong><small>商品：{{ conv.title }}</small></div><a href="{{ url_for('product_detail', product_id=conv.product_id) }}">查看商品</a></div>
+      <section class="chat-messages" id="chat-messages">
+        {% for m in msgs %}<div class="chat-message {% if m.sender_id == session.get('user_id') %}mine{% else %}theirs{% endif %}"><small>{{ m.username }} · {{ m.created_at }}</small><p>{{ m.body }}</p></div>{% else %}<p class="chat-empty">傳送第一則訊息開始聊天。</p>{% endfor %}
+      </section>
+      <form class="chat-compose" method="post"><textarea name="body" rows="2" maxlength="1000" required placeholder="輸入訊息，最多 1000 字"></textarea><button class="button button-primary" type="submit">傳送</button></form>
+    </div><script>const box=document.getElementById('chat-messages');if(box)box.scrollTop=box.scrollHeight;</script>
+    {% endblock %}
+    """
+    return render_template_string(html, conv=conv, msgs=msgs, other=other)
 
 
 @app.route("/health")
