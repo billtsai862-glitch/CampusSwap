@@ -214,8 +214,8 @@ def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if len(username) < 2 or len(username) > 24 or len(password) < 6:
-            flash("帳號需為 2 至 24 個字元，密碼至少 6 個字元。", "warning")
+        if len(username) < 2 or len(username) > 24 or len(password) < 6 or len(password) > 128:
+            flash("帳號需為 2 至 24 個字元，密碼需為 6 至 128 個字元。", "warning")
             return render_template("register.html")
         try:
             with get_db() as conn:
@@ -235,6 +235,9 @@ def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
+        if len(password) < 6 or len(password) > 128:
+            flash("密碼需為 6 至 128 個字元。", "warning")
+            return render_template("login.html")
         with get_db() as conn:
             user = conn.execute(
                 "SELECT * FROM users WHERE username = ?", (username,)
