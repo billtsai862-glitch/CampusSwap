@@ -294,8 +294,8 @@ def product_detail(product_id):
             ).fetchone()
     with get_db() as conn:
         favorite_count = conn.execute(
-            "SELECT COUNT(*) FROM favorites WHERE product_id = ?", (product_id,)
-        ).fetchone()[0]
+            "SELECT COUNT(*) AS count FROM favorites WHERE product_id = ?", (product_id,)
+        ).fetchone()["count"]
     return render_template("product_detail.html", product=product, is_favorite=is_favorite,
                            own_product=own_product, my_request=my_request,
                            favorite_count=favorite_count)
