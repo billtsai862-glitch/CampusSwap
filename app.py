@@ -1,15 +1,17 @@
 import os
-import sqlite3
 import uuid
+import urllib.request
+import urllib.error
 from pathlib import Path
 from functools import wraps
+import psycopg
+from psycopg.rows import dict_row
 
 from flask import Flask, render_template, render_template_string, request, redirect, url_for, session, flash, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = Path(os.environ.get("DATABASE_PATH", str(BASE_DIR / "campusswap.db")))
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-only-change-this-before-public-use")
@@ -18,95 +20,63 @@ app.config["UPLOAD_FOLDER"] = os.environ.get("UPLOAD_FOLDER", str(BASE_DIR / "st
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
+class HybridRow(dict):
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return list(self.values())[key]
+        return super().__getitem__(key)
+
+def hybrid_row(cursor):
+    values = cursor.fetchone()
+    return values
+
+def get_db():
+    if not DATABASE_URL:
+        raise RuntimeError("DATABASE_URL 尚未設定，請在 Render 設定 Supabase PostgreSQL 連線字串。")
+    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+    return PgConnection(conn)
 
 def init_db():
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with get_db() as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL,
-                price INTEGER NOT NULL CHECK(price >= 0),
-                condition_text TEXT NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            )
-        """)
-        product_columns = {row["name"] for row in conn.execute("PRAGMA table_info(products)")}
-        if "image_url" not in product_columns:
-            conn.execute("ALTER TABLE products ADD COLUMN image_url TEXT")
-        if "is_active" not in product_columns:
-            conn.execute("ALTER TABLE products ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS favorites (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                product_id INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, product_id),
-                FOREIGN KEY(user_id) REFERENCES users(id),
-                FOREIGN KEY(product_id) REFERENCES products(id)
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS purchase_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                product_id INTEGER NOT NULL,
-                buyer_id INTEGER NOT NULL,
-                message TEXT DEFAULT '',
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(product_id, buyer_id),
-                FOREIGN KEY(product_id) REFERENCES products(id),
-                FOREIGN KEY(buyer_id) REFERENCES users(id)
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                product_id INTEGER NOT NULL,
-                buyer_id INTEGER NOT NULL,
-                seller_id INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(product_id, buyer_id, seller_id),
-                FOREIGN KEY(product_id) REFERENCES products(id),
-                FOREIGN KEY(buyer_id) REFERENCES users(id),
-                FOREIGN KEY(seller_id) REFERENCES users(id)
-            )
-        """)
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                conversation_id INTEGER NOT NULL,
-                sender_id INTEGER NOT NULL,
-                body TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                read_at TIMESTAMP,
-                FOREIGN KEY(conversation_id) REFERENCES conversations(id),
-                FOREIGN KEY(sender_id) REFERENCES users(id)
-            )
-        """)
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id)")
+    # Supabase tables are managed by database migrations.
+    return None
 
+
+class PgCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+    def execute(self, query, params=None):
+        query = query.replace("?", "%s")
+        self._cursor.execute(query, params or ())
+        return self
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        return HybridRow(row) if row is not None else None
+    def fetchall(self):
+        return [HybridRow(row) for row in self._cursor.fetchall()]
+    def __iter__(self):
+        return iter(self.fetchall())
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+class PgConnection:
+    def __init__(self, connection):
+        self._connection = connection
+    def execute(self, query, params=None):
+        return PgCursor(self._connection.cursor()).execute(query, params)
+    def __enter__(self):
+        return self
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            if exc_type:
+                self._connection.rollback()
+            else:
+                self._connection.commit()
+        finally:
+            self._connection.close()
+    def close(self):
+        self._connection.close()
 
 def save_uploaded_image():
     uploaded = request.files.get("image")
@@ -121,11 +91,31 @@ def save_uploaded_image():
     }
     if uploaded.mimetype != expected_mime[extension]:
         raise ValueError("圖片檔案格式不正確，請重新選擇照片。")
-    upload_dir = Path(app.config["UPLOAD_FOLDER"])
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    storage_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
+    if not supabase_url or not storage_key:
+        raise ValueError("圖片儲存尚未設定，請在 Render 設定 Supabase Storage 金鑰。")
     filename = f"{uuid.uuid4().hex}{extension}"
-    uploaded.save(upload_dir / filename)
-    return url_for("static", filename=f"uploads/{filename}")
+    endpoint = f"{supabase_url}/storage/v1/object/product-images/{filename}"
+    data = uploaded.read()
+    req = urllib.request.Request(
+        endpoint,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {storage_key}",
+            "apikey": storage_key,
+            "Content-Type": expected_mime[extension],
+            "x-upsert": "false"
+        },
+        method="POST"
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            if response.status not in (200, 201):
+                raise ValueError("圖片上傳失敗，請稍後再試。")
+    except urllib.error.HTTPError as error:
+        raise ValueError("圖片上傳失敗，請確認 Supabase Storage 設定。") from error
+    return f"{supabase_url}/storage/v1/object/public/product-images/{filename}"
 
 
 def login_required(view):
@@ -185,7 +175,7 @@ def index():
         SELECT p.*, u.username,
                (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
         FROM products p JOIN users u ON p.user_id = u.id
-        WHERE p.is_active = 1
+        WHERE p.is_active IS TRUE
     """
     params = []
     if keyword:
@@ -198,12 +188,12 @@ def index():
     with get_db() as conn:
         products = conn.execute(sql, params).fetchall()
         categories = conn.execute(
-            "SELECT DISTINCT category FROM products WHERE is_active = 1 ORDER BY category"
+            "SELECT DISTINCT category FROM products WHERE is_active IS TRUE ORDER BY category"
         ).fetchall()
         stats = conn.execute("""
             SELECT COUNT(*) AS product_count,
                    (SELECT COUNT(*) FROM users) AS member_count
-            FROM products WHERE is_active = 1
+            FROM products WHERE is_active IS TRUE
         """).fetchone()
     return render_template("index.html", products=products, categories=categories,
                            keyword=keyword, selected_category=category, sort=sort, stats=stats)
@@ -225,7 +215,7 @@ def register():
                 )
             flash("註冊成功，歡迎加入 CampusSwap！", "success")
             return redirect(url_for("login"))
-        except sqlite3.IntegrityError:
+        except psycopg.IntegrityError:
             flash("這個帳號已經有人使用，請更換帳號。", "warning")
     return render_template("register.html")
 
@@ -373,7 +363,7 @@ def toggle_favorite(product_id):
             flash("已從收藏清單移除。", "success")
         else:
             conn.execute(
-                "INSERT OR IGNORE INTO favorites (user_id, product_id) VALUES (?, ?)",
+                "INSERT INTO favorites (user_id, product_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
                 (session["user_id"], product_id)
             )
             flash("已加入收藏！", "success")
@@ -388,7 +378,7 @@ def favorites():
             SELECT p.*, u.username FROM favorites f
             JOIN products p ON p.id=f.product_id
             JOIN users u ON u.id=p.user_id
-            WHERE f.user_id=? AND p.is_active=1
+            WHERE f.user_id=? AND p.is_active IS TRUE
             ORDER BY f.created_at DESC
         """, (session["user_id"],)).fetchall()
     return render_template("favorites.html", products=products)
@@ -412,7 +402,7 @@ def create_purchase_request(product_id):
                 VALUES (?, ?, ?)
             """, (product_id, session["user_id"], message))
             flash("購買申請已送出，請至個人中心查看進度。", "success")
-        except sqlite3.IntegrityError:
+        except psycopg.IntegrityError:
             flash("你已經對這項商品提出過申請。", "warning")
     return redirect(url_for("product_detail", product_id=product_id))
 
@@ -456,7 +446,7 @@ def update_purchase_request(request_id, action):
                 flash("只有已接受的申請可以標記為完成。", "warning")
             else:
                 conn.execute("UPDATE purchase_requests SET status='completed', updated_at=CURRENT_TIMESTAMP WHERE id=?", (request_id,))
-                conn.execute("UPDATE products SET is_active=0 WHERE id=?", (item["product_id"],))
+                conn.execute("UPDATE products SET is_active=FALSE WHERE id=?", (item["product_id"],))
                 flash("交易已完成，商品已自動下架。", "success")
         elif action == "cancel":
             if item["status"] == "pending":
@@ -551,7 +541,7 @@ def start_chat(product_id):
         flash("訊息不可空白，且最多 1000 字。", "warning")
         return redirect(url_for("product_detail", product_id=product_id))
     with get_db() as conn:
-        conn.execute("INSERT OR IGNORE INTO conversations (product_id,buyer_id,seller_id) VALUES (?,?,?)",
+        conn.execute("INSERT INTO conversations (product_id,buyer_id,seller_id) VALUES (?,?,?) ON CONFLICT DO NOTHING",
                      (product_id, session["user_id"], product["user_id"]))
         conv = conn.execute("SELECT id FROM conversations WHERE product_id=? AND buyer_id=? AND seller_id=?",
                             (product_id, session["user_id"], product["user_id"])).fetchone()
