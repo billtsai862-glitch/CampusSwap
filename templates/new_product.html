@@ -1,0 +1,8 @@
+{% extends "base.html" %}{% block title %}刊登商品｜CampusSwap{% endblock %}
+{% block content %}<section class="form-card wide"><h1>刊登二手商品</h1><p class="muted">填寫商品資訊，讓其他同學找到它。</p>
+<form method="post"><label>商品名稱</label><input name="title" required placeholder="例如：微積分課本">
+<label>商品分類</label><select name="category" required><option value="">請選擇</option><option>課本參考書</option><option>文具用品</option><option>3C 電子</option><option>生活用品</option><option>其他</option></select>
+<label>價格（新臺幣）</label><input type="number" name="price" min="0" required>
+<label>商品狀況</label><select name="condition_text" required><option value="">請選擇</option><option>全新</option><option>近全新</option><option>保存良好</option><option>有使用痕跡</option></select>
+<label>商品描述</label><textarea name="description" rows="4" placeholder="補充商品使用狀況、面交地點等資訊"></textarea>
+<button class="primary full" type="submit">送出刊登</button></form></section>{% endblock %}
