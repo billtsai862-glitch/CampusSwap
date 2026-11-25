@@ -1,0 +1,5 @@
+{% extends "base.html" %}{% block title %}會員註冊｜CampusSwap{% endblock %}
+{% block content %}<section class="form-card"><h1>建立帳號</h1><p class="muted">加入 CampusSwap 校園二手市集</p>
+<form method="post"><label>使用者名稱</label><input name="username" required minlength="2" placeholder="至少 2 個字元">
+<label>密碼</label><input type="password" name="password" required minlength="6" placeholder="至少 6 個字元">
+<button class="primary full" type="submit">註冊</button></form><p class="muted center">已經有帳號？<a href="{{ url_for('login') }}">前往登入</a></p></section>{% endblock %}
