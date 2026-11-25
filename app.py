@@ -163,8 +163,8 @@ def register():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if len(username) < 2 or len(username) > 24 or len(password) < 8:
-            flash("帳號需為 2 至 24 個字元，密碼至少 8 個字元。", "warning")
+        if len(username) < 2 or len(username) > 24 or len(password) < 6:
+            flash("帳號需為 2 至 24 個字元，密碼至少 6 個字元。", "warning")
             return render_template("register.html")
         try:
             with get_db() as conn:
