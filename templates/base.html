@@ -2,29 +2,38 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}CampusSwap 校園二手交易平台{% endblock %}</title>
+  <meta name="theme-color" content="#f8f9fc">
+  <title>{% block title %}CampusSwap｜校園二手市集{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<header class="topbar">
-  <a class="brand" href="{{ url_for('index') }}">CampusSwap</a>
-  <nav>
-    <a href="{{ url_for('index') }}">商品列表</a>
-    {% if session.get('user_id') %}
-      <a href="{{ url_for('new_product') }}">刊登商品</a>
-      <span class="welcome">你好，{{ session.get('username') }}</span>
-      <a href="{{ url_for('logout') }}">登出</a>
-    {% else %}
-      <a href="{{ url_for('login') }}">登入</a>
-      <a class="nav-button" href="{{ url_for('register') }}">註冊</a>
-    {% endif %}
-  </nav>
+<header class="site-header">
+  <div class="nav-wrap">
+    <a class="brand" href="{{ url_for('index') }}"><span class="brand-mark">C</span><span>Campus<span class="brand-accent">Swap</span><small>THE CAMPUS MARKETPLACE</small></span></a>
+    <nav class="main-nav">
+      <a href="{{ url_for('index') }}">探索商品</a>
+      {% if session.get('user_id') %}
+        <a href="{{ url_for('favorites') }}">我的收藏</a>
+        <a href="{{ url_for('dashboard') }}">個人中心</a>
+        <a class="nav-cta" href="{{ url_for('new_product') }}">＋ 刊登商品</a>
+        <a class="nav-user" href="{{ url_for('dashboard') }}">{{ session.get('username') }}</a>
+        <a href="{{ url_for('logout') }}">登出</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">登入</a>
+        <a class="nav-cta" href="{{ url_for('register') }}">免費加入</a>
+      {% endif %}
+    </nav>
+  </div>
 </header>
-<main class="container">
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}<div class="messages">{% for message in messages %}<p>{{ message }}</p>{% endfor %}</div>{% endif %}
+<main class="page-shell">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}
   {% endwith %}
   {% block content %}{% endblock %}
 </main>
-<footer>CampusSwap｜讓校園閒置物品找到下一位主人</footer>
-</body></html>
+<footer class="site-footer"><div><strong>CampusSwap</strong><span>讓校園閒置物品，找到下一位主人。</span></div><small>© 2026 CampusSwap · A smarter campus marketplace</small></footer>
+</body>
+</html>

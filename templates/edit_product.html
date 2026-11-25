@@ -1,0 +1,10 @@
+{% extends "base.html" %}{% block title %}編輯商品｜CampusSwap{% endblock %}
+{% block content %}<div class="form-page"><div class="form-heading"><span class="eyebrow">MANAGE YOUR LISTING</span><h1>編輯商品資訊</h1><p>更新商品內容，讓買家掌握最新資訊。</p></div><section class="form-card"><form method="post">
+<label>商品名稱 <span>*</span></label><input name="title" maxlength="80" required value="{{ product.title }}">
+<label>商品分類 <span>*</span></label><select name="category" required>{% for c in ['課本參考書','文具用品','3C 電子','生活用品','服飾配件','運動休閒','其他'] %}<option {% if product.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+<label>販售價格（NT$） <span>*</span></label><input type="number" name="price" min="0" required value="{{ product.price }}">
+<label>商品狀況 <span>*</span></label><select name="condition_text" required>{% for c in ['全新','近全新','保存良好','有使用痕跡'] %}<option {% if product.condition_text == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select>
+<label>商品圖片網址</label><input type="url" name="image_url" value="{{ product.image_url or '' }}" placeholder="https://example.com/image.jpg">
+<label>商品描述</label><textarea name="description" rows="5" maxlength="1000">{{ product.description or '' }}</textarea>
+<div class="form-actions"><a class="button button-light" href="{{ url_for('product_detail', product_id=product.id) }}">取消</a><button class="button button-primary" type="submit">儲存變更</button></div>
+</form><form method="post" action="{{ url_for('delete_product', product_id=product.id) }}" onsubmit="return confirm('確定要刪除這項商品嗎？相關收藏與購買申請也會一併刪除。')"><button class="button button-danger button-wide" type="submit">刪除此商品</button></form></section></div>{% endblock %}

@@ -1,24 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="hero">
-  <div><p class="eyebrow">CAMPUS SECOND-HAND MARKET</p><h1>讓閒置物品，<br>遇見需要它的人。</h1><p>校園二手交易平台，讓書籍、文具與生活用品循環利用。</p></div>
-  <a class="primary" href="{{ url_for('new_product') }}">＋ 刊登商品</a>
+<section class="hero-panel">
+  <div class="hero-copy"><span class="eyebrow">YOUR CAMPUS, YOUR MARKETPLACE</span><h1>讓好物循環，<br><em>讓校園生活更好。</em></h1><p>從課本、3C 到日常用品，找到校園裡值得被再次使用的好物。</p>
+    <div class="hero-actions"><a class="button button-dark" href="#market">開始探索 <span>↘</span></a><a class="text-link" href="{{ url_for('new_product') }}">分享我的閒置物品 →</a></div>
+  </div>
+  <div class="hero-art"><div class="art-orbit orbit-one"></div><div class="art-orbit orbit-two"></div><div class="art-card art-card-back">SECOND LIFE<br><b>GOOD FINDS</b></div><div class="art-card art-card-front"><span class="art-label">CAMPUS PICK</span><div class="art-icon">↗</div><strong>Find your<br>next favorite.</strong><small>BUY LESS. SHARE MORE.</small></div><span class="floating-dot dot-one"></span><span class="floating-dot dot-two"></span></div>
 </section>
-<form class="search" action="{{ url_for('search') }}" method="get">
-  <input name="q" value="{{ keyword|default('') }}" placeholder="搜尋商品名稱或分類">
-  <button type="submit">搜尋</button>
-</form>
-<div class="section-heading"><h2>最新上架</h2><span>{{ products|length }} 件商品</span></div>
-{% if products %}
-<div class="products">
-  {% for p in products %}
-  <a class="product-card" href="{{ url_for('product_detail', product_id=p.id) }}">
-    <div class="product-placeholder">CS</div>
-    <div class="product-info"><span class="tag">{{ p.category }}</span><h3>{{ p.title }}</h3><p class="price">NT$ {{ p.price }}</p><p class="muted">{{ p.condition_text }} · {{ p.username }}</p></div>
-  </a>
-  {% endfor %}
-</div>
-{% else %}
-<div class="empty"><h3>目前還沒有商品</h3><p>成為第一位刊登商品的同學吧！</p></div>
-{% endif %}
+<section class="stats-strip"><div><strong>{{ stats.product_count }}</strong><span>件上架好物</span></div><div><strong>{{ stats.member_count }}</strong><span>位校園會員</span></div><div><strong>100%</strong><span>讓資源再次循環</span></div></section>
+<section class="market-section" id="market">
+  <div class="section-intro"><div><span class="eyebrow">THE MARKETPLACE</span><h2>探索校園好物</h2><p>用更簡單的方式，找到你正在需要的東西。</p></div><a class="text-link" href="{{ url_for('new_product') }}">刊登一件商品 →</a></div>
+  <form class="filter-panel" method="get" action="{{ url_for('index') }}">
+    <div class="search-field"><span>⌕</span><input name="q" value="{{ keyword }}" placeholder="搜尋商品、分類或關鍵字"></div>
+    <select name="category"><option value="">所有分類</option>{% for item in categories %}<option value="{{ item.category }}" {% if selected_category == item.category %}selected{% endif %}>{{ item.category }}</option>{% endfor %}</select>
+    <select name="sort"><option value="latest" {% if sort == 'latest' %}selected{% endif %}>最新上架</option><option value="price_asc" {% if sort == 'price_asc' %}selected{% endif %}>價格由低到高</option><option value="price_desc" {% if sort == 'price_desc' %}selected{% endif %}>價格由高到低</option></select>
+    <button class="button button-primary" type="submit">搜尋商品</button>
+  </form>
+  <div class="result-heading"><div><h3>{% if keyword %}「{{ keyword }}」的搜尋結果{% elif selected_category %}{{ selected_category }}{% else %}最新上架{% endif %}</h3><span>{{ products|length }} 件商品</span></div></div>
+  {% if products %}
+  <div class="product-grid">
+    {% for p in products %}
+    <a class="product-card" href="{{ url_for('product_detail', product_id=p.id) }}">
+      <div class="product-image">{% if p.image_url %}<img src="{{ p.image_url }}" alt="{{ p.title }}" loading="lazy">{% else %}<div class="image-placeholder"><span>CS</span><small>CAMPUS FIND</small></div>{% endif %}<span class="image-category">{{ p.category }}</span></div>
+      <div class="product-content"><div class="product-meta"><span>{{ p.condition_text }}</span><span>♡ {{ p.favorite_count }}</span></div><h4>{{ p.title }}</h4><div class="product-bottom"><strong>NT$ {{ "{:,}".format(p.price) }}</strong><span>{{ p.username }}</span></div></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><div class="empty-symbol">⌕</div><h3>目前找不到符合條件的商品</h3><p>試試其他關鍵字，或成為第一位刊登商品的同學。</p><a class="button button-primary" href="{{ url_for('index') }}">查看全部商品</a></div>
+  {% endif %}
+</section>
 {% endblock %}

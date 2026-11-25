@@ -1,2 +1,20 @@
-{% extends "base.html" %}{% block title %}{{ product.title }}｜CampusSwap{% endblock %}
-{% block content %}<a class="back" href="{{ url_for('index') }}">← 返回商品列表</a><section class="detail-card"><div class="detail-placeholder">CampusSwap</div><div><span class="tag">{{ product.category }}</span><h1>{{ product.title }}</h1><p class="detail-price">NT$ {{ product.price }}</p><p><b>商品狀況：</b>{{ product.condition_text }}</p><p><b>刊登者：</b>{{ product.username }}</p><p><b>商品描述：</b>{{ product.description or '尚未提供描述' }}</p><p class="muted">刊登時間：{{ product.created_at }}</p></div></section>{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ product.title }}｜CampusSwap{% endblock %}
+{% block content %}
+<div class="breadcrumb"><a href="{{ url_for('index') }}">探索商品</a><span>/</span><span>{{ product.category }}</span></div>
+<section class="detail-layout">
+  <div class="detail-visual">{% if product.image_url %}<img src="{{ product.image_url }}" alt="{{ product.title }}">{% else %}<div class="detail-placeholder"><span>CS</span><small>GIVE IT A SECOND LIFE</small></div>{% endif %}</div>
+  <div class="detail-info"><span class="eyebrow">{{ product.category }} · {{ product.condition_text }}</span><h1>{{ product.title }}</h1><div class="detail-price">NT$ {{ "{:,}".format(product.price) }}</div><div class="seller-line"><div class="avatar">{{ product.username[:1]|upper }}</div><div><strong>{{ product.username }}</strong><small>CampusSwap 賣家</small></div><span class="seller-badge">校園會員</span></div><div class="detail-description"><h3>商品介紹</h3><p>{{ product.description or "賣家尚未提供詳細說明。" }}</p></div><div class="detail-facts"><div><small>商品狀況</small><strong>{{ product.condition_text }}</strong></div><div><small>收藏人數</small><strong>{{ favorite_count }} 人收藏</strong></div><div><small>刊登時間</small><strong>{{ product.created_at }}</strong></div></div>
+    {% if own_product %}
+      <div class="detail-actions"><a class="button button-primary" href="{{ url_for('edit_product', product_id=product.id) }}">編輯商品</a><a class="button button-light" href="{{ url_for('dashboard') }}">管理刊登</a></div>
+    {% elif product.is_active %}
+      {% if my_request %}
+        <div class="request-status"><strong>已提出購買申請</strong><span>目前狀態：{{ {'pending':'等待賣家回覆','accepted':'賣家已接受','rejected':'賣家已婉拒','completed':'交易已完成','cancelled':'已取消'}.get(my_request.status, my_request.status) }}</span></div>
+      {% else %}
+        <form class="purchase-box" method="post" action="{{ url_for('create_purchase_request', product_id=product.id) }}"><label for="message">想對賣家說的話（選填）</label><textarea id="message" name="message" rows="3" maxlength="500" placeholder="例如：請問可以在北科大校門口面交嗎？"></textarea><button class="button button-primary button-wide" type="submit">提出購買申請 →</button></form>
+      {% endif %}
+      <form method="post" action="{{ url_for('toggle_favorite', product_id=product.id) }}"><button class="button button-light button-wide" type="submit">{% if is_favorite %}♥ 已收藏，點擊取消{% else %}♡ 加入我的收藏{% endif %}</button></form>
+    {% else %}<div class="request-status"><strong>此商品已完成交易或下架</strong></div>{% endif %}
+  </div>
+</section>
+{% endblock %}
