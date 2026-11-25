@@ -39,3 +39,72 @@ body{background:#faf8f5;color:#292929}
   .category-chip{white-space:nowrap;flex:0 0 auto}
   .hero-panel{border-radius:16px}
 }
+
+
+/* Black-and-white CampusSwap visual identity and marketplace homepage */
+:root{--ink:#171717;--muted:#777;--line:#e7e7e7;--paper:#f7f7f7;--purple:#171717;--mint:#ededed;--orange:#171717}
+body{background:#f7f7f7;color:#171717}
+.site-header{background:#fff;border-bottom:1px solid #e8e8e8;box-shadow:0 3px 18px rgba(0,0,0,.035)}
+.brand-mark{background:#111;color:#fff;box-shadow:none}
+.brand-accent,.main-nav a:hover,.text-link:hover,.main-nav .nav-user{color:#111}
+.main-nav .nav-cta,.button-primary{background:#171717;color:#fff}
+.main-nav .nav-cta:hover,.button-primary:hover{background:#383838;color:#fff}
+.button-dark{background:#111;color:#fff}
+.button-dark:hover{background:#333}
+.hero-panel{min-height:420px;background:#f0f0f0;border-radius:20px}
+.hero-copy{padding-top:52px;padding-bottom:42px}
+.hero-copy h1 em{color:#171717}
+.eyebrow{color:#777}
+.hero-copy p{color:#666}
+.hero-promo-tag{display:inline-flex;padding:7px 11px;background:#171717;color:#fff;border-radius:4px;font-size:10px;font-weight:800;letter-spacing:1px;margin-bottom:18px}
+.hero-trust-line{display:flex;gap:18px;margin-top:23px;color:#555;font-size:11px;font-weight:600}
+.hero-art{min-height:420px;background:linear-gradient(135deg,#171717,#3a3a3a);overflow:hidden}
+.hero-art:before,.hero-art:after{content:"";position:absolute;border:1px solid #ffffff20;border-radius:50%;width:390px;height:390px;right:-55px;top:10px}
+.hero-art:after{width:290px;height:290px;right:-5px;top:60px}
+.hero-art-glow{position:absolute;width:260px;height:260px;border-radius:50%;background:#ffffff0c;filter:blur(3px);right:15%;top:70px}
+.hero-promo-copy{position:absolute;left:11%;top:78px;color:#fff;z-index:2}
+.hero-promo-copy span{font-size:9px;letter-spacing:2.5px;color:#c8c8c8;font-weight:800}
+.hero-promo-copy strong{display:block;font-size:29px;line-height:1.35;margin:17px 0}
+.hero-promo-copy small{font-size:8px;letter-spacing:1.5px;color:#aaa}
+.hero-product-ticket{position:absolute;z-index:3;width:142px;height:178px;padding:15px;background:#f6f6f6;color:#171717;box-shadow:0 18px 40px #0005;display:flex;flex-direction:column;justify-content:space-between}
+.hero-product-ticket span{font-size:9px;letter-spacing:1px;color:#777}
+.hero-product-ticket strong{font-size:22px;line-height:1.25}
+.hero-product-ticket b{font-size:9px;letter-spacing:.8px}
+.ticket-one{right:19%;top:66px;transform:rotate(8deg)}
+.ticket-two{right:38%;top:184px;background:#dedede;transform:rotate(-8deg)}
+.hero-spark{position:absolute;color:#fff;font-size:24px}
+.spark-one{right:12%;top:45px}.spark-two{right:13%;bottom:45px;font-size:17px}
+.stats-strip{margin:20px 0 56px;box-shadow:0 8px 25px rgba(0,0,0,.035)}
+.filter-panel{box-shadow:0 8px 25px rgba(0,0,0,.035);border-radius:13px}
+.filter-panel select:focus,.search-field:focus-within{border-color:#777;box-shadow:0 0 0 3px rgba(0,0,0,.07)}
+.category-chip{border-color:#e5e5e5;color:#555}
+.category-chip:hover{border-color:#555;color:#111}
+.category-chip.is-active{background:#171717;border-color:#171717;color:#fff;box-shadow:0 5px 12px #0002}
+.product-card{border-color:#e9e9e9;border-radius:13px;box-shadow:0 3px 12px rgba(0,0,0,.025)}
+.product-card:hover{border-color:#bdbdbd;box-shadow:0 14px 32px rgba(0,0,0,.09)}
+.product-image{background:#eee}
+.image-placeholder{background:linear-gradient(140deg,#e9e9e9,#d9d9d9);color:#333}
+.image-category{color:#333;background:#ffffffed;border:1px solid #eee}
+.product-bottom strong,.breadcrumb a,.table-action,.empty-inline a,.detail-price{color:#171717}
+.avatar,.table-thumb{background:#ededed;color:#171717}
+.seller-badge{background:#ededed;color:#333}
+.showcase-section{margin:38px 0 48px}
+.showcase-heading{display:flex;justify-content:space-between;align-items:end;margin-bottom:18px}
+.showcase-heading h2{font-size:24px;letter-spacing:-.5px;margin:7px 0}
+.showcase-heading p{margin:0;color:#777;font-size:12px}
+.showcase-note{font-size:10px;color:#777;border:1px solid #e4e4e4;border-radius:20px;padding:7px 11px;background:#fff}
+.latest-showcase{padding-top:32px;border-top:1px solid #e7e7e7}
+@media(max-width:900px){.hero-promo-copy{left:8%}.ticket-one{right:12%}.ticket-two{right:33%}}
+@media(max-width:650px){
+ .hero-panel{grid-template-columns:1fr;border-radius:16px}
+ .hero-copy{padding:30px 24px}
+ .hero-copy h1{font-size:34px}
+ .hero-art{min-height:300px}
+ .hero-promo-copy{top:36px;left:8%}
+ .hero-promo-copy strong{font-size:23px}
+ .ticket-one{right:9%;top:35px;transform:scale(.82) rotate(8deg);transform-origin:top right}
+ .ticket-two{right:37%;top:120px;transform:scale(.82) rotate(-8deg);transform-origin:top right}
+ .hero-trust-line{gap:10px;flex-wrap:wrap}
+ .showcase-heading{align-items:flex-start;gap:12px;flex-direction:column}
+ .showcase-heading h2{font-size:21px}
+}
