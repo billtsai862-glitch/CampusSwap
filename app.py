@@ -195,9 +195,25 @@ def index():
                    (SELECT COUNT(*) FROM users) AS member_count
             FROM products WHERE is_active IS TRUE
         """).fetchone()
+        popular_products = conn.execute("""
+            SELECT p.*, u.username,
+                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
+            FROM products p JOIN users u ON p.user_id = u.id
+            WHERE p.is_active IS TRUE
+            ORDER BY favorite_count DESC, p.id DESC
+            LIMIT 8
+        """).fetchall()
+        latest_products = conn.execute("""
+            SELECT p.*, u.username,
+                   (SELECT COUNT(*) FROM favorites f WHERE f.product_id = p.id) AS favorite_count
+            FROM products p JOIN users u ON p.user_id = u.id
+            WHERE p.is_active IS TRUE
+            ORDER BY p.id DESC
+            LIMIT 8
+        """).fetchall()
     return render_template("index.html", products=products, categories=categories,
-                           keyword=keyword, selected_category=category, sort=sort, stats=stats)
-
+                           keyword=keyword, selected_category=category, sort=sort, stats=stats,
+                           popular_products=popular_products, latest_products=latest_products)
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
